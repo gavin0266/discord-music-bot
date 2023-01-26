@@ -185,7 +185,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
 
                     command.edit_original_interaction_response(&ctx.http, |response| {
                         response.content(format!("Playlist Title: {}, Count: {}", playlist.title, playlist.videos.len()).to_string())
-                    }).await.expect("cannot edit comment");;
+                    }).await.expect("cannot edit comment");
 
                     if let Some(handler_lock) = manager.get(*guild_id) {
 
@@ -206,7 +206,12 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
                                 },
                             };
 
-                            handler.enqueue_source(source.unwrap());
+                            if let Some(track) = source {
+                                handler.enqueue_source(track);
+                                println!("{} - added", item.title);
+                            } else {
+                                println!("{} - source error", item.title);
+                            }
 
                         }
 
@@ -214,11 +219,6 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
 
                 },
             }
-
-
-            
-            
-            
 
             
             "Now playing".to_string()

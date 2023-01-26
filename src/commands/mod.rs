@@ -4,3 +4,4 @@ pub mod playing;
 pub mod queue;
 pub mod shuffle;
 pub mod skip;
+pub mod clear;

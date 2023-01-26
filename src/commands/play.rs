@@ -14,7 +14,12 @@ use serenity::prelude::{Context};
 
 use invidious::reqwest::asynchronous::Client;
 
+use songbird::Call;
 use url::Url;
+
+use rand::Rng;
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 
 
 enum Query {
@@ -57,6 +62,22 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
     .resolved
     .as_ref()
     .expect("Expected string query object");
+
+    let to_shuffle = match options
+    .get(1)
+        {
+            Some(shuffle) => { 
+                match shuffle.resolved.as_ref().unwrap() {
+                    CommandDataOptionValue::Boolean(val) => val.to_owned(),
+                    _ => false 
+                }
+            },
+            None => false
+        };
+    
+     
+
+    
 
     let guild_id = &command.guild_id.expect("No Guild Id");
     let guild = &ctx.cache.guild(guild_id).expect("Invalid Guild Id");
@@ -110,7 +131,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
                                     },
                                 };
 
-                                handler.play_source(source.unwrap());         
+                                handler.enqueue_source(source.unwrap());         
                             }
 
                             command.edit_original_interaction_response(&ctx.http, |response| {
@@ -145,7 +166,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
                             },
                         };
 
-                        handler.play_source(source.unwrap());         
+                        handler.enqueue_source(source.unwrap());         
                     }
 
                     command.edit_original_interaction_response(&ctx.http, |response| {
@@ -162,11 +183,20 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
 
                     let playlist = client.playlist(&playlist_id, None).await.expect("Invalid playlist id");
 
+                    command.edit_original_interaction_response(&ctx.http, |response| {
+                        response.content(format!("Playlist Title: {}, Count: {}", playlist.title, playlist.videos.len()).to_string())
+                    }).await.expect("cannot edit comment");;
+
                     if let Some(handler_lock) = manager.get(*guild_id) {
 
                         let mut handler = handler_lock.lock().await;
+                        let mut queue = playlist.videos;
 
-                        for item in playlist.videos.iter() {
+                        if to_shuffle {
+                             queue.shuffle(&mut thread_rng());
+                        }
+
+                        for item in queue.iter() {
                             let url = format!("https://www.youtube.com/watch?v={}", item.id);
 
                             let source = match songbird::ytdl(&url).await {
@@ -179,10 +209,6 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
                             handler.enqueue_source(source.unwrap());
 
                         }
-
-                        command.edit_original_interaction_response(&ctx.http, |response| {
-                            response.content(format!("Playlist Title: {}, Count: {}", playlist.title, playlist.videos.len()).to_string())
-                        }).await.expect("cannot edit comment");;
 
                     }
 
@@ -214,4 +240,13 @@ pub fn register(command: &mut CreateApplicationCommand) -> &mut CreateApplicatio
                 .kind(CommandOptionType::String)
                 .required(true)
         })
+        .create_option(|option| {
+            option
+                .name("shuffle")
+                .description("shuffle playlist before adding (default: false)")
+                .kind(CommandOptionType::Boolean)
+                .default_option(false)
+                .required(false)
+        })
+
 }

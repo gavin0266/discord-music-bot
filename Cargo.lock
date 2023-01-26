@@ -875,6 +875,7 @@ name = "irysbot"
 version = "0.1.0"
 dependencies = [
  "invidious",
+ "rand",
  "regex",
  "serenity",
  "songbird",

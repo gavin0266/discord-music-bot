@@ -31,6 +31,10 @@ impl EventHandler for Handler {
             let _content = match command.data.name.as_str() {
                 "ping" => commands::ping::run(&command.data.options),
                 "play" => commands::play::run(&ctx, &command, &command.data.options).await,
+                "playing" => commands::playing::run(&ctx, &command, &command.data.options).await,
+                "queue" => commands::queue::run(&ctx, &command, &command.data.options).await,
+                "shuffle" => commands::shuffle::run(&ctx, &command, &command.data.options).await,
+                "skip" => commands::skip::run(&ctx, &command, &command.data.options).await,
                 &_ => "not implemented :(".to_string(),
             };
 
@@ -51,6 +55,11 @@ impl EventHandler for Handler {
                 commands
                     .create_application_command(|command| commands::ping::register(command))
                     .create_application_command(|command| commands::play::register(command))
+                    .create_application_command(|command| commands::playing::register(command))
+                    .create_application_command(|command| commands::queue::register(command))
+                    .create_application_command(|command| commands::shuffle::register(command))
+                    .create_application_command(|command| commands::skip::register(command))
+
 
             })
             .await;

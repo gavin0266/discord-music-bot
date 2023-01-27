@@ -5,3 +5,4 @@ pub mod queue;
 pub mod shuffle;
 pub mod skip;
 pub mod clear;
+pub mod disconnect;

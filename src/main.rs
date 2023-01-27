@@ -31,6 +31,7 @@ impl EventHandler for Handler {
 
             let _content = match command.data.name.as_str() {
                 "clear" => commands::clear::run(&ctx, &command, &command.data.options).await,
+                "disconnect" => commands::disconnect::run(&ctx, &command, &command.data.options).await,
                 "ping" => commands::ping::run(&command.data.options),
                 "play" => commands::play::run(&ctx, &command, &command.data.options).await,
                 "playing" => commands::playing::run(&ctx, &command, &command.data.options).await,
@@ -56,6 +57,7 @@ impl EventHandler for Handler {
             let commands = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
                 commands
                     .create_application_command(|command| commands::clear::register(command))
+                    .create_application_command(|command| commands::disconnect::register(command))
                     .create_application_command(|command| commands::ping::register(command))
                     .create_application_command(|command| commands::play::register(command))
                     .create_application_command(|command| commands::playing::register(command))

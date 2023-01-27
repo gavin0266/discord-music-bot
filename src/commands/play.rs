@@ -1,3 +1,6 @@
+use crate::{
+    common::join_call::join_call,
+};
 
 use invidious::structs::hidden::SearchItem;
 use invidious::structs::video::Video;
@@ -20,6 +23,7 @@ use url::Url;
 use rand::Rng;
 use rand::thread_rng;
 use rand::seq::SliceRandom;
+
 
 
 enum Query {
@@ -74,13 +78,10 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
             },
             None => false
         };
-    
-     
 
-    
 
-    let guild_id = &command.guild_id.expect("No Guild Id");
-    let guild = &ctx.cache.guild(guild_id).expect("Invalid Guild Id");
+    let guild_id = command.guild_id.expect("No Guild Id");
+    let guild = ctx.cache.guild(guild_id).expect("Invalid Guild Id");
     let channel_id = guild
         .voice_states.get(&command.user.id)
         .and_then(|voice_state| voice_state.channel_id);
@@ -93,10 +94,19 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
             return "Cannot join VC".to_string();
         }
     };
-    let manager = songbird::get(ctx).await
-        .expect("Songbird Voice client placed in at initialisation.").clone();
+    
+    let manager = songbird::get(ctx).await.unwrap();
+    
+    match join_call(ctx, guild_id.into(), connect_to.into(), command.channel_id.into()).await {
+        Ok(_) => (),
+        Err(_) => {
+           command.edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Bot is in another channel!")
+            }).await.expect("cannot edit comment");
 
-    let ( handler_lock, .. ) = manager.join(*guild_id, connect_to).await;
+            return "Cannot join VC".to_string(); 
+        }
+    }
     
 
     match query {
@@ -120,7 +130,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
                             println!("Title: {}, id: {}", title, id);
 
                             let url = format!("https://www.youtube.com/watch?v={}", id);
-                            if let Some(handler_lock) = manager.get(*guild_id) {
+                            if let Some(handler_lock) = manager.get(guild_id) {
 
                                 let mut handler = handler_lock.lock().await;
 
@@ -155,7 +165,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
                     let vid_obj: Video = client.video(&vid_id, None).await.expect("invalid video id");
                     let url = format!("https://www.youtube.com/watch?v={}", vid_id);
 
-                    if let Some(handler_lock) = manager.get(*guild_id) {
+                    if let Some(handler_lock) = manager.get(guild_id) {
 
                         let mut handler = handler_lock.lock().await;
 
@@ -187,32 +197,30 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction, options
                         response.content(format!("Playlist Title: {}, Count: {}", playlist.title, playlist.videos.len()).to_string())
                     }).await.expect("cannot edit comment");
 
-                    if let Some(handler_lock) = manager.get(*guild_id) {
+                    let mut queue = playlist.videos;
 
-                        let mut handler = handler_lock.lock().await;
-                        let mut queue = playlist.videos;
+                    if to_shuffle {
+                         queue.shuffle(&mut thread_rng());
+                    }
 
-                        if to_shuffle {
-                             queue.shuffle(&mut thread_rng());
-                        }
+                    for item in queue.iter() {
+                        let url = format!("https://www.youtube.com/watch?v={}", item.id);
 
-                        for item in queue.iter() {
-                            let url = format!("https://www.youtube.com/watch?v={}", item.id);
+                        let source = match songbird::ytdl(&url).await {
+                            Ok(source) => Some(source),
+                            Err(_) => {
+                                None
+                            },
+                        };
 
-                            let source = match songbird::ytdl(&url).await {
-                                Ok(source) => Some(source),
-                                Err(_) => {
-                                    None
-                                },
-                            };
-
-                            if let Some(track) = source {
+                        if let Some(track) = source {
+                            if let Some(handler_lock) = manager.get(guild_id) {
+                                let mut handler = handler_lock.lock().await;
                                 handler.enqueue_source(track);
                                 println!("{} - added", item.title);
-                            } else {
-                                println!("{} - source error", item.title);
                             }
-
+                        } else {
+                            println!("{} - source error", item.title);
                         }
 
                     }

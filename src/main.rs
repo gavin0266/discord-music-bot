@@ -1,4 +1,5 @@
 mod commands;
+mod common;
 
 use std::env;
 
